@@ -1,18 +1,13 @@
-micmiu-webv1
+websocket-speedtest
 ============
 
-Michael designed for J2EE development framework .
+Michael designed for websockt speed test base on websocket .
 
 
 Technical Summary :
 ------------------
 
-* SpringMVC 3.2
-* Hibernate 4.19
-* Tiles 2.2,2
-* shiro 1.2.0
-* jQuery+easyui
-...
+* websocket
 
 
 Build:
@@ -20,6 +15,7 @@ Build:
 * Maven
 * JDK1.6+
 * Eclipse
+* Tomcat7+
 
 
 Architecture :
