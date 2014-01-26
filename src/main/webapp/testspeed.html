@@ -1,0 +1,172 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>wesocket speed test @micmiu.com</title>
+<style type="text/css">
+#console-container {
+	width: 500px;
+}
+
+#console {
+	border: 1px solid #CCCCCC;
+	border-right-color: #999999;
+	border-bottom-color: #999999;
+	height: 170px;
+	overflow-y: scroll;
+	padding: 5px;
+	width: 100%;
+}
+
+#console p {
+	padding: 0;
+	margin: 0;
+}
+</style>
+<script type="text/javascript" src="js/jquery-1.9.1.min.js"></script>
+<script type="text/javascript">
+	var websocket = null;
+	function initSocket() {
+		var ws_url = null;
+		if (window.location.protocol == 'https:') {
+			ws_url = 'wss://' + window.location.host + '/websocket-speedtest/micmiutest';
+		} else {
+			ws_url = 'ws://' + window.location.host + '/websocket-speedtest/micmiutest';
+		}
+		if ('WebSocket' in window) {
+			websocket = new WebSocket(ws_url);
+		} else if ('MozWebSocket' in window) {
+			websocket = new MozWebSocket(ws_url);
+		} else {
+			alert('Error: WebSocket is not supported by this browser.');
+			return false;
+		}
+
+		console.info(websocket);
+		// 收到消息时在消息框内显示  
+		websocket.onmessage = function(evt) {
+			if ('string' == typeof (evt.data)) {
+				if (evt.data.indexOf('testspeed') > -1) {
+					console.info(evt.data);
+					var paraArr = evt.data.split('=')[1].split(',');
+					var upflag = false;
+					var times = 0, pkglen = 0;
+					for ( var i = 0; i < paraArr.length; i++) {
+						var kvArr = paraArr[i].split(':');
+						if (paraArr[i] == "type:upload") {
+							upflag = true;
+						} else if (kvArr[0] == "times") {
+							times = parseInt(kvArr[1], 10)
+						} else if (kvArr[0] == "pkglen") {
+							pkglen = parseInt(kvArr[1], 10)
+						}
+					}
+					if (upflag) {
+						testUpload(times, 512);
+					}
+				}
+				chatLog(evt.data)
+			} else if ('object' == typeof (evt.data)
+					&& (evt.data instanceof Blob)) {
+				//chatLog("warn:>> binary don't handle.")
+			} else {
+				chatLog("warn:>> unsupport typeof=" + typeof (evt.data))
+			}
+		};
+		// 断开时会走这个方法  
+		websocket.onclose = function() {
+			chatLog('close~~~~~~~');
+		};
+		// 连接上时走这个方法  
+		websocket.onopen = function() {
+			chatLog('open~~~~~~~~');
+		};
+
+	}
+	function chatLog(log) {
+		var div_log = document.getElementById('console');
+		var p = document.createElement('p');
+		p.style.wordWrap = 'break-word';
+		p.innerHTML = log;
+		div_log.appendChild(p);
+		while (div_log.childNodes.length > 50) {
+			div_log.removeChild(div_log.firstChild);
+		}
+		div_log.scrollTop = div_log.scrollHeight;
+	}
+	function testDownload() {
+		var testMsg = "testspeed=type:download,status:start";
+		websocket.send(testMsg);
+	}
+	function testUpload(_times, _pkglen) {
+		var bufData = new ArrayBuffer(_pkglen);
+		for ( var i = 0; i < _pkglen; i++) {
+			bufData[i] = 'A';
+		}
+		var pkgCount = 0, pkgCountLast = 0;
+		var percent = 0;
+		var start = new Date().getTime();
+		var lastTime = start, currTime = start, useTime = 0;
+		while (useTime <= _times * 1000) {
+			websocket.send(bufData);
+			pkgCount++;
+			currTime = new Date().getTime();
+			useTime = currTime - lastTime;
+			var currPer = Math.round(useTime * 100 / 1000 / _times);
+			if (currPer >= 100) {
+				break;
+			}
+			if (currPer > percent) {
+				var currspeed = Math.round((pkgCount - pkgCountLast) * _pkglen
+						* 1000 / useTime);
+				pkgCountLast = pkgCount;
+				percent = currPer;
+				lastTime = currTime;
+				chatLog('upload current speed = ' + currspeed
+						+ 'bps, process = ' + percent + '%.');
+			}
+		}
+		if(percent<=100){
+			chatLog("upload speed process 100%.");
+		}
+		var avgspeed = Math.round(pkgCount * _pkglen * 1000 / useTime);
+		chatLog('upload avg speed= ' + avgspeed + ' bps');
+	}
+	function testSpeed() {
+		var testMsg = "testspeed=type:download,status:start,nextstep:upload";
+		websocket.send(testMsg);
+	}
+	function testSelfSpeed() {
+		var data = document.getElementById('msgSendBox').value;
+		if (data == "") {
+			alert("input message ");
+			return false;
+		}
+		websocket.send(data);
+		document.getElementById('msgSendBox').value = '';
+	}
+	function stop() {
+		alert("sorry unsupport ...");
+	}
+	function sendPkg() {
+		var length = 64;
+		var bufData = new ArrayBuffer(length);
+		for ( var i = 0; i < 10; i++) {
+			websocket.send(new ArrayBuffer(length + i));
+		}
+	}
+</script>
+</head>
+<body onload="initSocket();">
+	<div id="console-container">
+		<div id="console"></div>
+	</div>
+	<p>
+		<textarea id="msgSendBox" name="msgSendBox" rows="5" cols="32"></textarea>
+		<input type="button" name="btn_speed" id="btn_speed" value="默认测速"
+			onclick="testSpeed()" /> <input type="button" name="btn_self"
+			id="btn_self" value="自定义测速" onclick="testSelfSpeed()" /> <input
+			type="button" name="tt" value="test" onclick="sendPkg()" />
+	<p>
+</body>
+</html>

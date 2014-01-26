@@ -1,0 +1,208 @@
+<!doctype html>
+<!--[if lt IE 7]> <html class="ie6 oldie"> <![endif]-->
+<!--[if IE 7]>    <html class="ie7 oldie"> <![endif]-->
+<!--[if IE 8]>    <html class="ie8 oldie"> <![endif]-->
+<!--[if gt IE 8]><!-->
+<html class="">
+<!--<![endif]-->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wesocket speed test @micmiu.com</title>
+<link rel="stylesheet" type="text/css" href="css/boilerplate.css">
+<link rel="stylesheet" type="text/css" href="css/base.css">
+<link rel="stylesheet" type="text/css" href="css/style.css">
+<!--[if lt IE 9]>
+<script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+<![endif]-->
+<script type="text/javascript" src="js/respond.min.js"></script>
+<script type="text/javascript" src="js/jquery-1.9.1.min.js"></script>
+<script type="text/javascript" src="js/common.js"></script>
+</head>
+<body onload="initSocket();">
+	<div class="gridContainer clearfix">
+
+		<div id="LayoutDiv1">
+			<!--<div class="head">
+       <div class="wifi"><img src="images/wifi.png"></div>
+       <div class="header-title">综合测试界面</div>
+     </div>-->
+			<div class="board">
+				<a href="#"><img src="images/board.png"></a>
+			</div>
+			<div class="content">
+				<!--<div class="bight">
+           <div class="bight-area"><a href="#"><img src="images/bight.png"></a></div>
+        </div>-->
+				<div class="result">
+					<div class="tab">
+						<div class="table">
+							<div class="title">时延</div>
+							<div class="tb_result" id="test-delay">80ms</div>
+						</div>
+						<div class="line">
+							<img src="images/line.jpg">
+						</div>
+						<div class="table">
+							<div class="title">上传速度</div>
+							<div class="tb_result" id="up-speed">待测...</div>
+						</div>
+						<div class="line">
+							<img src="images/line.jpg">
+						</div>
+						<div class="table">
+							<div class="title">下载速度</div>
+							<div class="tb_result" id="down-speed">待测...</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="button">
+					<a href="javascript:" onclick="testSpeed()">重新测速</a>
+				</div>
+				<div class="search" style="color: green">
+					about more see <a href="http://www.micmiu.com" target="_blank"
+						style="color: white">micmiu.com</a>
+				</div>
+			</div>
+		</div>
+	</div>
+</body>
+<script type="text/javascript">
+	var websocket = null;
+	var _upshow = document.getElementById('up-speed');
+	var _downshow = document.getElementById('down-speed');
+	function initSocket() {
+		var ws_url = null;
+		if (window.location.protocol == 'https:') {
+			ws_url = 'wss://' + window.location.host + '/websocket-speedtest/mimciutest';
+		} else {
+			ws_url = 'ws://' + window.location.host + '/websocket-speedtest/micmiutest';
+		}
+		if ('WebSocket' in window) {
+			websocket = new WebSocket(ws_url);
+		} else if ('MozWebSocket' in window) {
+			websocket = new MozWebSocket(ws_url);
+		} else {
+			alert('Error: WebSocket is not supported by this browser.');
+			return false;
+		}
+
+		console.info(websocket);
+		// 收到消息时在消息框内显示  
+		websocket.onmessage = function(evt) {
+			if ('string' == typeof (evt.data)) {
+				if (evt.data.indexOf('testspeed') > -1) {
+					var paraArr = evt.data.split('=')[1].split(',');
+					var upflag = false;
+					var times = 0, pkglen = 0;
+					for ( var i = 0; i < paraArr.length; i++) {
+						var kvArr = paraArr[i].split(':');
+						if (paraArr[i] == "type:upload") {
+							upflag = true;
+						} else if (kvArr[0] == "times") {
+							times = parseInt(kvArr[1], 10)
+						} else if (kvArr[0] == "pkglen") {
+							pkglen = parseInt(kvArr[1], 10)
+						}
+					}
+					if (upflag) {
+						_upshow.innerHTML = "开始...";
+						setTimeout(testUploadSend(times, pkglen), 1000);
+					}
+				} else if (evt.data.indexOf('info:') == 0) {
+					var arr = evt.data.split(':')[1].split(',');
+					var speedArr = arr[0].split('=');
+					if (speedArr.length = 2) {
+						_downshow.innerHTML = unitConver(speedArr[1]) + "/s"
+					}
+				} else if (evt.data.indexOf('hxws=') == 0) {
+					var retMsg = eval("(" + evt.data.split('=')[1] + ")");
+					if (retMsg.type == 'up') {
+						if (retMsg.handler == 'info') {
+							_upshow.innerHTML = unitConver(retMsg.speed) + "/s";
+						} else if (retMsg.handler == 'sendpkg') {
+							if ('start' == retMsg.status) {
+								_upshow.innerHTML = '开始...';
+							}
+							var data = new ArrayBuffer(retMsg.pkglen-1);
+							for ( var i = 0; i < 10; i++) {
+								websocket.send(data);
+							}
+							websocket.send(new ArrayBuffer(retMsg.pkglen));
+						}
+					} else if (retMsg.type == 'down') {
+						if (retMsg.handler == 'info') {
+							_downshow.innerHTML = unitConver(retMsg.speed)
+									+ "/s"
+						}
+					}
+				}
+
+			} else if ('object' == typeof (evt.data)
+					&& (evt.data instanceof Blob)) {
+				//chatLog("warn:>> binary don't handle.")
+			} else {
+				console.info("warn:>> unsupport typeof=" + typeof (evt.data))
+			}
+		};
+		// 断开时会走这个方法  
+		websocket.onclose = function() {
+			console.info('close~~~~~~~');
+		};
+		// 连接上时走这个方法  
+		websocket.onopen = function() {
+			console.info('open~~~~~~~~');
+		};
+	}
+
+	function testUploadSend(_times, _pkglen) {
+		var bufData = new ArrayBuffer(_pkglen);
+		for ( var i = 0; i < _pkglen; i++) {
+			bufData[i] = 'A';
+		}
+		var pkgCount = 0, pkgCountLast = 0;
+		var percent = 0;
+		var start = new Date().getTime();
+		var lastTime = start, currTime = start, useTime = 0;
+		while (useTime <= _times * 1000) {
+			websocket.send(bufData);
+			pkgCount++;
+			currTime = new Date().getTime();
+			useTime = currTime - lastTime
+			var currPer = Math.round(useTime * 100 / 1000 / _times);
+			if (currPer >= 100) {
+				break;
+			}
+			if (currPer > percent) {
+				var currspeed = Math.round((pkgCount - pkgCountLast) * _pkglen
+						* 1000 / useTime);
+				pkgCountLast = pkgCount;
+				percent = currPer;
+				lastTime = currTime;
+				_upshow.innerHTML = unitConver(currspeed) + "/s"
+			}
+		}
+		if (percent <= 100) {
+			console.info("upload speed process 100%.");
+		}
+		var avgspeed = Math.round(pkgCount * _pkglen * 1000 / useTime);
+		upshow.innerHTML = unitConver(avgspeed) + "/s";
+	}
+	function testUpload() {
+		_upshow.innerHTML = "开始...";
+		var testMsg = "testspeed=type:upload,status:start";
+		websocket.send(testMsg);
+	}
+	function testDownload() {
+		_downshow.innerHTML = "开始...";
+		var testMsg = "testspeed=type:download,status:start";
+		websocket.send(testMsg);
+	}
+	function testSpeed() {
+		_downshow.innerHTML = "开始...";
+		var testMsg = "testspeed=type:download,status:start,pkglen:512,nextstep:upload";
+		websocket.send(testMsg);
+	}
+</script>
+</html>
