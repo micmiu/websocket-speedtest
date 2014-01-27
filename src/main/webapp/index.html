@@ -73,11 +73,16 @@
 	var _upshow = document.getElementById('up-speed');
 	var _downshow = document.getElementById('down-speed');
 	function initSocket() {
+		var pathsArr = window.location.pathname.split('\/');
+		var approotpath = "";
+		if(pathsArr.length>1){
+			approotpath = "/"+pathsArr[1];
+		}
 		var ws_url = null;
 		if (window.location.protocol == 'https:') {
-			ws_url = 'wss://' + window.location.host + '/websocket-speedtest/mimciutest';
+			ws_url = 'wss://' + window.location.host +approotpath+'/micmiutest';
 		} else {
-			ws_url = 'ws://' + window.location.host + '/websocket-speedtest/micmiutest';
+			ws_url = 'ws://' + window.location.host +approotpath+'/micmiutest';
 		}
 		if ('WebSocket' in window) {
 			websocket = new WebSocket(ws_url);
@@ -87,7 +92,6 @@
 			alert('Error: WebSocket is not supported by this browser.');
 			return false;
 		}
-
 		console.info(websocket);
 		// 收到消息时在消息框内显示  
 		websocket.onmessage = function(evt) {
