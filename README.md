@@ -1,7 +1,7 @@
 websocket-speedtest
 ============
 
-Michael designed for websockt speed test base on websocket .
+This tool is designed for websocket speed test based on java.
 
 
 Technical Summary :
